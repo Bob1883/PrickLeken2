@@ -74,12 +74,6 @@ def restartGame():
 
 def on_button_pressed_ab():
     global synchronizing, loadingIDs, IDList
-    if loadingIDs and not (isAdmin):
-        basic.show_icon(IconNames.SMALL_DIAMOND)
-        while loadingIDs:
-            radio.send_value("ID", playerID)
-            basic.pause(randint(100, 500))
-        basic.show_icon(IconNames.YES)
     if loadingIDs and (isAdmin and synchronizing):
         synchronizing = False
         loadingIDs = False
@@ -87,8 +81,8 @@ def on_button_pressed_ab():
         drawLed(numLeds)
         radio.send_value("syncDone", numLeds)
         IDList = IDList
-    if loadingIDs and (isAdmin and not (synchronizing)):
-        synchronizing = True
+    if restartVar:
+        restartGame()
 input.on_button_pressed(Button.AB, on_button_pressed_ab)
 
 def drawLed(leds: number):
@@ -103,20 +97,25 @@ def drawLed(leds: number):
             index3 += 1
 
 def on_received_string(receivedString):
-    global playerPlaying
+    global restartVar, messageReceived, playerPlaying, nextMessageReceived
     if receivedString == "youLose":
         basic.show_icon(IconNames.SKULL)
+        restartVar = True
+    if receivedString == "messageReceived":
+        messageReceived = True
     if receivedString == "donePlaying":
         if playerPlaying:
             playerPlaying = False
             drawLed(numLeds)
-            radio.send_value("nextMessageReceived", 0)
+            radio.send_string("nextMessageReceived")
         else:
-            radio.send_value("nextMessageReceived", 0)
+            radio.send_string("nextMessageReceived")
+    if receivedString == "nextMessageReceived":
+        nextMessageReceived = True
 radio.on_received_string(on_received_string)
 
 def selectAdmin():
-    global isAdmin
+    global isAdmin, synchronizing
     basic.show_leds("""
         . # . . .
         . # # . .
@@ -124,7 +123,9 @@ def selectAdmin():
         . # # . .
         . # . . .
         """)
-    while True:
+    while loadingIDs:
+        radio.send_value("ID", playerID)
+        basic.pause(randint(50, 100))
         if input.button_is_pressed(Button.A):
             isAdmin = True
             basic.show_leds("""
@@ -135,26 +136,10 @@ def selectAdmin():
                 . # . # .
                 """)
             basic.pause(500)
+            synchronizing = True
             break
-        if input.button_is_pressed(Button.B):
-            isAdmin = False
-            basic.show_leds("""
-                . # # # .
-                . # . # .
-                . # # # .
-                . # . . .
-                . # . . .
-                """)
-            basic.pause(500)
-            break
-    basic.clear_screen()
-    basic.show_leds("""
-        . . . . .
-        . . . . .
-        . . # . .
-        . . . . .
-        . . . . .
-        """)
+    if not (isAdmin):
+        basic.show_icon(IconNames.YES)
 
 def on_button_pressed_b():
     global numLeds, restartVar, yourTurn, playerPlaying, nextMessageReceived, selectedToRemove
@@ -163,7 +148,9 @@ def on_button_pressed_b():
         if yourTurn:
             numLeds = numLeds - selectedToRemove
             if numLeds <= 0:
-                radio.send_string("youLose")
+                for index22 in range(4):
+                    radio.send_string("youLose")
+                    basic.pause(200)
                 basic.show_string("YOU WIN")
                 basic.show_icon(IconNames.HAPPY)
                 restartVar = True
@@ -190,15 +177,12 @@ def on_button_pressed_b():
             basic.pause(500)
             basic.clear_screen()
             drawLed(numLeds)
-        if restartVar:
-            pass
 input.on_button_pressed(Button.B, on_button_pressed_b)
 
 def on_received_value(name, value):
-    global messageReceived, numLeds, nextMessageReceived, loadingIDs, yourTurn
+    global numLeds, loadingIDs, yourTurn
     if isAdmin:
         if name == "ID":
-            messageReceived = True
             IDList.append(value)
             radio.send_value("Done", value)
         if name == "next":
@@ -206,19 +190,16 @@ def on_received_value(name, value):
                 numLeds = value
                 drawLed(numLeds)
     else:
-        if name == "nextMessageReceived":
-            basic.show_number(0)
-            nextMessageReceived = True
         if name == "Done":
             if value == playerID:
                 loadingIDs = False
         if name == "yourTurn":
             if value == playerID and not (yourTurn):
                 yourTurn = True
-                radio.send_value("messageReceived", 0)
+                radio.send_string("messageReceived")
                 showYourTurn()
             if value == playerID and yourTurn:
-                radio.send_value("messageReceived", 0)
+                radio.send_string("messageReceived")
         if name == "next":
             basic.clear_screen()
             numLeds = value
@@ -229,8 +210,8 @@ def on_received_value(name, value):
             drawLed(numLeds)
 radio.on_received_value(on_received_value)
 
-messageReceived = False
 nextMessageReceived = False
+messageReceived = False
 row = 0
 synchronizing = False
 turnIndex = 0
@@ -262,67 +243,33 @@ if isAdmin:
     numLeds = randint(10, 25)
 
 def on_forever():
-    global messageReceived, yourTurn, turnIndex, playerPlaying, canClear
+    global messageReceived, turnIndex, yourTurn, playerPlaying, canClear
     if isAdmin and synchronizing:
-        basic.show_leds("""
-            . . . . .
-            . . . . .
-            . . . . .
-            . . . . .
-            . . . . .
-            """)
-        basic.show_leds("""
-            . . . . .
-            . . . . .
-            . . . . .
-            . . . . .
-            . # # # .
-            """)
-        basic.show_leds("""
-            . . . . .
-            . . . . .
-            . . . . .
-            . # # # .
-            . # # # .
-            """)
-        basic.show_leds("""
-            . . . . .
-            . . . . .
-            . # # # .
-            . # # # .
-            . # # # .
-            """)
-        basic.show_leds("""
-            . . . . .
-            . # # # .
-            . # # # .
-            . # # # .
-            . # # # .
-            """)
-        basic.show_leds("""
-            . # # # .
-            . # # # .
-            . # # # .
-            . # # # .
-            . # # # .
-            """)
+        basic.clear_screen()
+        for row2 in range(5):
+            for col in range(3):
+                led.plot(col + 1, 4 - row2)
+            basic.pause(200)
+        basic.pause(200)
+        basic.clear_screen()
     if isAdmin and (not (loadingIDs) and not (playerPlaying)):
         drawLed(numLeds)
         messageReceived = False
-        while not (messageReceived):
-            radio.send_value("yourTurn", IDList[turnIndex])
-            basic.pause(100)
-            if IDList[turnIndex] == playerID:
-                yourTurn = True
-                showYourTurn()
-                break
-        for index22 in range(4):
-            basic.pause(100)
-            radio.send_value("next", numLeds)
         turnIndex += 1
-        playerPlaying = True
         if turnIndex >= len(IDList):
             turnIndex = 0
+        if IDList[turnIndex] == playerID:
+            yourTurn = True
+            messageReceived = True
+            showYourTurn()
+        else:
+            while not (messageReceived):
+                radio.send_value("yourTurn", IDList[turnIndex])
+                basic.pause(100)
+        for index23 in range(4):
+            basic.pause(100)
+            radio.send_value("next", numLeds)
+        playerPlaying = True
         basic.pause(100)
     if yourTurn:
         canClear = True
